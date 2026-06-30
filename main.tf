@@ -1,81 +1,59 @@
-resource "azurerm_subnet" "subnet" {
+# Subnets added to an EXISTING virtual network. The vnet is passed by id; its resource group and name
+# are parsed from it (per the pass-ids standard), so callers hand one id. NSG and route table
+# associations are separate, subnet-name-keyed maps so their ids may be computed in the same apply.
+# Route tables and NSGs are owned by their own modules; this one only associates them. The subnet
+# schema and the delegation lookup mirror the network module so the two stay in lockstep.
+locals {
+  vnet                 = provider::azurerm::parse_resource_id(var.virtual_network_id)
+  resource_group_name  = local.vnet.resource_group_name
+  virtual_network_name = local.vnet.resource_name
+}
+
+resource "azurerm_subnet" "this" {
   for_each = var.subnets
 
+  resource_group_name  = local.resource_group_name
+  virtual_network_name = local.virtual_network_name
+
   name                                          = each.key
-  resource_group_name                           = var.rg_name
-  virtual_network_name                          = var.vnet_name
-  address_prefixes                              = toset(each.value.address_prefixes)
-  service_endpoints                             = toset(each.value.service_endpoints)
-  service_endpoint_policy_ids                   = toset(each.value.service_endpoint_policy_ids)
+  address_prefixes                              = length(each.value.address_prefixes) > 0 ? each.value.address_prefixes : null
+  service_endpoints                             = each.value.service_endpoints
+  service_endpoint_policy_ids                   = each.value.service_endpoint_policy_ids
   private_endpoint_network_policies             = each.value.private_endpoint_network_policies
   private_link_service_network_policies_enabled = each.value.private_link_service_network_policies_enabled
   default_outbound_access_enabled               = each.value.default_outbound_access_enabled
+  sharing_scope                                 = each.value.sharing_scope
+
+  dynamic "ip_address_pool" {
+    for_each = each.value.ip_address_pool != null ? [each.value.ip_address_pool] : []
+    content {
+      id                     = ip_address_pool.value.id
+      number_of_ip_addresses = ip_address_pool.value.number_of_ip_addresses
+    }
+  }
 
   dynamic "delegation" {
-    for_each = each.value.delegation != null ? each.value.delegation : []
+    for_each = each.value.delegations
     content {
-      name = delegation.value.type
+      name = delegation.value
       service_delegation {
-        name    = delegation.value.type
-        actions = lookup(var.subnet_delegations_actions, delegation.value.type, delegation.value.action)
+        name    = delegation.value
+        actions = lookup(var.subnet_delegation_actions, delegation.value, null)
       }
     }
   }
 }
 
-locals {
-  subnets = {
-    for subnet in azurerm_subnet.subnet :
-    subnet.name => subnet.id
-  }
-}
+resource "azurerm_subnet_network_security_group_association" "this" {
+  for_each = var.nsg_associations
 
-resource "azurerm_subnet_network_security_group_association" "vnet" {
-  for_each                  = var.nsg_ids != null ? var.nsg_ids : {}
-  subnet_id                 = local.subnets[each.key]
+  subnet_id                 = azurerm_subnet.this[each.key].id
   network_security_group_id = each.value
 }
 
-locals {
-
-  route_table_associations = {
-    for assoc in azurerm_subnet_route_table_association.this :
-    assoc.subnet_id => {
-      subnet_id      = assoc.subnet_id,
-      route_table_id = assoc.route_table_id
-    }
-  }
-
-  grouped_by_route_table = {
-    for rt_id in distinct([for assoc in local.route_table_associations : assoc.route_table_id]) :
-    rt_id => [for assoc in local.route_table_associations : assoc.subnet_id if assoc.route_table_id == rt_id]
-  }
-}
-
-
-resource "azurerm_route_table" "this" {
-  for_each = var.route_tables
-
-  name                          = each.key
-  location                      = var.location
-  resource_group_name           = var.rg_name
-  bgp_route_propagation_enabled = each.value.bgp_route_propagation_enabled
-
-  dynamic "route" {
-    for_each = each.value.routes
-    content {
-      name                   = route.key
-      address_prefix         = route.value.address_prefix
-      next_hop_type          = route.value.next_hop_type
-      next_hop_in_ip_address = lookup(route.value, "next_hop_in_ip_address", null)
-
-    }
-  }
-}
-
 resource "azurerm_subnet_route_table_association" "this" {
-  depends_on     = [azurerm_subnet.subnet]
-  for_each       = var.subnet_route_table_associations
-  subnet_id      = local.subnets[each.key]
-  route_table_id = azurerm_route_table.this[each.value].id
+  for_each = var.route_table_associations
+
+  subnet_id      = azurerm_subnet.this[each.key].id
+  route_table_id = each.value
 }

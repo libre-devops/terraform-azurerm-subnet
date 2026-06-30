@@ -1,30 +1,49 @@
-output "route_table_ids" {
-  description = "Map of Route Table names to their IDs."
-  value       = { for name, rt in azurerm_route_table.this : name => rt.id }
+output "resource_group_name" {
+  description = "Resource group name parsed from virtual_network_id."
+  value       = local.resource_group_name
 }
 
-output "subnet_ids_associated_with_route_tables" {
-  value       = local.grouped_by_route_table
-  description = "The IDs of the subnets associated with each route table"
+output "subnet_address_prefixes" {
+  description = "Map of subnet name to its address prefixes."
+  value       = { for name, subnet in azurerm_subnet.this : name => subnet.address_prefixes }
 }
 
-output "subnets_ids" {
-  value = {
-    for key, subnet in azurerm_subnet.subnet :
-    key => subnet.id
-  }
-  description = "The ids of the subnets created"
+output "subnet_ids" {
+  description = "Map of subnet name to its id."
+  value       = { for name, subnet in azurerm_subnet.this : name => subnet.id }
 }
 
-output "subnets_names" {
-  value = {
-    for index, subnet in azurerm_subnet.subnet :
-    subnet.id => subnet.name
-  }
-  description = "The name of the subnets created"
+output "subnet_ids_zipmap" {
+  description = "Map of subnet name to a { name, id } object, for handing the whole object downstream."
+  value       = { for name, subnet in azurerm_subnet.this : name => { name = subnet.name, id = subnet.id } }
 }
 
-output "vnet_dns_servers" {
-  value       = var.dns_servers == [] ? ["168.63.129.16"] : var.dns_servers
-  description = "The dns servers of the vnet, if it is using Azure default, this module will return the Azure 'wire' IP as a list of string in the 1st element"
+output "subnet_names" {
+  description = "The subnet names."
+  value       = keys(azurerm_subnet.this)
+}
+
+output "subnet_nsg_association_ids" {
+  description = "Map of subnet name to its network security group association id."
+  value       = { for name, assoc in azurerm_subnet_network_security_group_association.this : name => assoc.id }
+}
+
+output "subnet_route_table_association_ids" {
+  description = "Map of subnet name to its route table association id."
+  value       = { for name, assoc in azurerm_subnet_route_table_association.this : name => assoc.id }
+}
+
+output "subnets" {
+  description = "The full azurerm_subnet resources, keyed by subnet name."
+  value       = azurerm_subnet.this
+}
+
+output "subscription_id" {
+  description = "Subscription id parsed from virtual_network_id."
+  value       = local.vnet.subscription_id
+}
+
+output "virtual_network_name" {
+  description = "Virtual network name parsed from virtual_network_id."
+  value       = local.virtual_network_name
 }

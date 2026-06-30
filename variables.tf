@@ -1,92 +1,26 @@
-variable "create_diagnostic_settings" {
-  type        = bool
-  description = "Whether diagnostic settings should be made"
-  default     = false
-}
-
-variable "diagnostic_settings" {
-  description = "An object containing the diagnostic settings for a resource"
-  type = object({
-    diagnostic_settings_name       = optional(string)
-    target_resource_id             = optional(string)
-    storage_account_id             = optional(string)
-    eventhub_name                  = optional(string)
-    eventhub_authorization_rule_id = optional(string)
-    law_id                         = optional(string)
-    law_destination_type           = optional(string, "Dedicated")
-    partner_solution_id            = optional(string)
-    enabled_log = optional(list(object({
-      category       = optional(string)
-      category_group = optional(string)
-    })), [])
-    metric = optional(list(object({
-      category = string
-      enabled  = optional(bool, true)
-    })), [])
-    enable_all_logs    = optional(bool, false)
-    enable_all_metrics = optional(bool, false)
-  })
-  default = null
-}
-
-variable "diagnostic_settings_enable_all_logs_and_metrics" {
-  type        = bool
-  description = "Whether all logs and metrics should be enabled"
-  default     = false
-}
-
-variable "dns_servers" {
-  description = "The DNS servers to be used with vNet."
-  type        = list(string)
-  default     = []
-}
-
-variable "location" {
-  description = "The location for this resource to be put in"
-  type        = string
-}
-
-variable "nsg_ids" {
-  description = "A map of subnet name to Network Security Group IDs"
+variable "nsg_associations" {
+  description = "Map of subnet name to network security group id to associate. Keys are subnet names (must exist in subnets); values may be computed in the same apply (the static keys keep for_each valid)."
   type        = map(string)
   default     = {}
 }
 
-variable "rg_name" {
-  description = "The name of the resource group, this module does not create a resource group, it is expecting the value of a resource group already exists"
-  type        = string
-}
-
-variable "route_tables" {
-  description = "Map of Route Tables to be created, where the key is the name of the Route Table."
-  type = map(object({
-    bgp_route_propagation_enabled = optional(bool, false)
-    routes = map(object({
-      address_prefix         = string
-      next_hop_type          = string
-      next_hop_in_ip_address = optional(string)
-    }))
-  }))
-  default = {}
-}
-
-variable "route_tables_ids" {
-  description = "A map of subnet name to Route table ids"
+variable "route_table_associations" {
+  description = "Map of subnet name to route table id to associate. Keys are subnet names (must exist in subnets); values may be computed in the same apply."
   type        = map(string)
   default     = {}
 }
 
-variable "subnet_delegations_actions" {
-  type = map(list(string))
+variable "subnet_delegation_actions" {
+  description = "Lookup of subnet delegation service name to its delegated actions. A subnet's delegations reference these by service name; a service not listed here falls back to the platform-inferred actions."
+  type        = map(list(string))
   default = {
-    "GitHub.Network/networkSettings" = ["Microsoft.Network/virtualNetworks/subnets/action"]
-    "Microsoft.ApiManagement/service" = ["Microsoft.Network/virtualNetworks/subnets/join/action",
-    "Microsoft.Network/virtualNetworks/subnets/prepareNetworkPolicies/action"]
+    "GitHub.Network/networkSettings"         = ["Microsoft.Network/virtualNetworks/subnets/action"]
+    "Microsoft.ApiManagement/service"        = ["Microsoft.Network/virtualNetworks/subnets/action"]
     "Microsoft.App/environments"             = ["Microsoft.Network/virtualNetworks/subnets/action"]
     "Microsoft.App/testClients"              = ["Microsoft.Network/virtualNetworks/subnets/action"]
     "Microsoft.Apollo/npu"                   = ["Microsoft.Network/virtualNetworks/subnets/action"]
     "Microsoft.AVS/PrivateClouds"            = ["Microsoft.Network/virtualNetworks/subnets/action"]
-    "Microsoft.AzureCosmosDB/clusters"       = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+    "Microsoft.AzureCosmosDB/clusters"       = ["Microsoft.Network/virtualNetworks/subnets/action"]
     "Microsoft.BareMetal/AzureHPC"           = ["Microsoft.Network/virtualNetworks/subnets/action"]
     "Microsoft.BareMetal/AzureHostedService" = ["Microsoft.Network/virtualNetworks/subnets/action"]
     "Microsoft.BareMetal/AzurePaymentHSM"    = ["Microsoft.Network/virtualNetworks/subnets/action"]
@@ -127,14 +61,14 @@ variable "subnet_delegations_actions" {
     "Microsoft.Kusto/clusters"                       = ["Microsoft.Network/virtualNetworks/subnets/action"]
     "Microsoft.LabServices/labplans"                 = ["Microsoft.Network/virtualNetworks/subnets/action"]
     "Microsoft.Logic/integrationServiceEnvironments" = ["Microsoft.Network/virtualNetworks/subnets/action"]
-    "Microsoft.MachineLearningServices/workspaces"   = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+    "Microsoft.MachineLearningServices/workspaces"   = ["Microsoft.Network/virtualNetworks/subnets/action"]
     "Microsoft.Netapp/volumes" = [
       "Microsoft.Network/networkinterfaces/*", "Microsoft.Network/virtualNetworks/subnets/join/action"
     ]
     "Microsoft.Network/dnsResolvers"                 = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
     "Microsoft.Network/fpgaNetworkInterfaces"        = ["Microsoft.Network/virtualNetworks/subnets/action"]
     "Microsoft.Network/managedResolvers"             = ["Microsoft.Network/virtualNetworks/subnets/action"]
-    "Microsoft.Network/networkWatchers."             = ["Microsoft.Network/virtualNetworks/subnets/join/action"]
+    "Microsoft.Network/networkWatchers"              = ["Microsoft.Network/virtualNetworks/subnets/action"]
     "Microsoft.Network/virtualNetworkGateways"       = ["Microsoft.Network/virtualNetworks/subnets/action"]
     "Microsoft.Orbital/orbitalGateways"              = ["Microsoft.Network/virtualNetworks/subnets/action"]
     "Microsoft.PowerPlatform/enterprisePolicies"     = ["Microsoft.Network/virtualNetworks/subnets/action"]
@@ -161,56 +95,66 @@ variable "subnet_delegations_actions" {
     "PaloAltoNetworks.Cloudngfw/firewalls"    = ["Microsoft.Network/virtualNetworks/subnets/action"]
     "Qumulo.Storage/fileSystems"              = ["Microsoft.Network/virtualNetworks/subnets/action"]
   }
-  description = "List of delegation actions when delegations of subnets is used, will be done for query"
-}
-
-variable "subnet_enforce_private_link_endpoint_network_policies" {
-  description = "A map of subnet name to enable/disable private link endpoint network policies on the subnet."
-  type        = map(bool)
-  default     = {}
-}
-
-variable "subnet_enforce_private_link_service_network_policies" {
-  description = "A map of subnet name to enable/disable private link service network policies on the subnet."
-  type        = map(bool)
-  default     = {}
-}
-
-variable "subnet_route_table_associations" {
-  description = "Map where the key is the subnet name and the value is the name of the route table to associate with."
-  type        = map(string)
-  default     = {}
-}
-
-variable "subnet_service_endpoints" {
-  description = "A map of subnet name to service endpoints to add to the subnet."
-  type        = map(any)
-  default     = {}
 }
 
 variable "subnets" {
-  description = "Map of subnets with their properties"
+  description = <<-EOT
+    Subnets to create in the virtual network, keyed by subnet name. Each subnet sets its address
+    prefixes (or ip_address_pool) and optional service endpoints, delegations (service names only;
+    the actions are looked up from subnet_delegation_actions), and policy flags. NSG and route table
+    associations are separate inputs (nsg_associations / route_table_associations) so their ids may be
+    computed in the same apply.
+
+    Secure defaults: private_endpoint_network_policies defaults to "Enabled" (enforces NSG and route
+    table rules on private endpoints), and default_outbound_access_enabled defaults to false (no
+    implicit outbound internet; Azure is retiring default outbound, so attach an explicit egress such
+    as the nat-gateway module). Both are overridable per subnet.
+  EOT
   type = map(object({
-    address_prefixes                              = set(string)
-    private_endpoint_network_policies             = optional(string, "Disabled")
-    private_link_service_network_policies_enabled = optional(bool, false)
-    default_outbound_access_enabled               = optional(bool, true)
-    service_endpoint_policy_ids                   = optional(set(string))
-    delegation = optional(list(object({
-      type   = optional(string)
-      action = optional(list(string)) # Optional user-defined action
-    })))
-    service_endpoints = optional(list(string))
+    address_prefixes                              = optional(list(string), [])
+    ip_address_pool                               = optional(object({ id = string, number_of_ip_addresses = string }), null)
+    service_endpoints                             = optional(list(string), [])
+    service_endpoint_policy_ids                   = optional(list(string), [])
+    delegations                                   = optional(list(string), [])
+    private_endpoint_network_policies             = optional(string, "Enabled")
+    private_link_service_network_policies_enabled = optional(bool, true)
+    default_outbound_access_enabled               = optional(bool, false)
+    sharing_scope                                 = optional(string, null)
   }))
   default = {}
+
+  validation {
+    condition     = alltrue([for name in keys(var.subnets) : length(name) >= 1 && length(name) <= 80])
+    error_message = "Each subnet name must be 1 to 80 characters (the Azure subnet name limit)."
+  }
+
+  validation {
+    condition     = alltrue([for s in values(var.subnets) : (length(s.address_prefixes) > 0) != (s.ip_address_pool != null)])
+    error_message = "Each subnet must set exactly one of address_prefixes or ip_address_pool."
+  }
+
+  validation {
+    condition     = alltrue([for s in values(var.subnets) : contains(["Disabled", "Enabled", "NetworkSecurityGroupEnabled", "RouteTableEnabled"], s.private_endpoint_network_policies)])
+    error_message = "subnets[*].private_endpoint_network_policies must be Disabled, Enabled, NetworkSecurityGroupEnabled, or RouteTableEnabled."
+  }
+
+  validation {
+    condition     = alltrue([for s in values(var.subnets) : s.sharing_scope == null || s.sharing_scope == "Tenant"])
+    error_message = "subnets[*].sharing_scope must be null or \"Tenant\"."
+  }
+
+  validation {
+    condition     = alltrue([for s in values(var.subnets) : s.sharing_scope == null || s.default_outbound_access_enabled == false])
+    error_message = "subnets[*].sharing_scope can only be set when default_outbound_access_enabled is false."
+  }
 }
 
-variable "tags" {
-  description = "The tags to associate with your network and subnets."
-  type        = map(string)
-}
-
-variable "vnet_name" {
-  description = "Name of the vnet to create"
+variable "virtual_network_id" {
+  description = "Resource id of the existing virtual network to add subnets to. The resource group name and virtual network name are parsed from it (pass the network module's vnet_id output)."
   type        = string
+
+  validation {
+    condition     = try(provider::azurerm::parse_resource_id(var.virtual_network_id).resource_type, "") == "virtualNetworks"
+    error_message = "virtual_network_id must be a virtual network id of the form /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Network/virtualNetworks/<name>."
+  }
 }
