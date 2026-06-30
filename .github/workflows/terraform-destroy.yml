@@ -37,6 +37,8 @@ jobs:
           run-terraform-plan: false
           run-terraform-plan-destroy: true
           run-terraform-destroy: true
+          # This module creates no resource group locks; skip the lock-dance.
+          remove-resource-group-locks-before-tf-run: false
           arm-client-id: ${{ vars.AZURE_CLIENT_ID }}
           arm-tenant-id: ${{ vars.AZURE_TENANT_ID }}
           arm-subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
