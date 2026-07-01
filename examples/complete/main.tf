@@ -68,7 +68,19 @@ module "subnet" {
 
   virtual_network_id = module.network.vnet_id
 
-  subnets = module.subnet_calculator.network_subnets
+  # Take the calculator's address prefixes and layer the full per-subnet surface on top: service
+  # endpoints, a delegation, and private-endpoint-policy / default-outbound overrides.
+  subnets = {
+    "snet-app-${local.vnet_name}" = merge(module.subnet_calculator.network_subnets["snet-app-${local.vnet_name}"], {
+      service_endpoints                             = ["Microsoft.Storage", "Microsoft.KeyVault"]
+      private_link_service_network_policies_enabled = true
+    })
+    "snet-data-${local.vnet_name}" = merge(module.subnet_calculator.network_subnets["snet-data-${local.vnet_name}"], {
+      delegations                       = ["Microsoft.Web/serverFarms"]
+      private_endpoint_network_policies = "Disabled"
+      default_outbound_access_enabled   = true
+    })
+  }
 
   nsg_associations = { for name, _ in module.subnet_calculator.network_subnets : name => azurerm_network_security_group.this.id }
   route_table_associations = {
